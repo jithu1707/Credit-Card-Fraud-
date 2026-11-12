@@ -12,12 +12,9 @@
   main { max-width:960px; margin:0 auto; padding:24px 16px 60px; }
   h1 { margin:0 0 4px; } p.sub { color:var(--mut); margin:0 0 20px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:18px; }
-  .tabs { display:flex; gap:8px; margin-bottom:14px; }
-  .tab { padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:transparent; color:var(--mut); cursor:pointer; }
-  .tab.active { background:var(--acc); color:#fff; border-color:var(--acc); }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; }
   label { font-size:12px; color:var(--mut); display:block; margin-bottom:3px; }
-  input[type=number], input[type=file] { width:100%; padding:7px; border-radius:6px; border:1px solid var(--line); background:#0b1220; color:var(--txt); }
+  input[type=number] { width:100%; padding:7px; border-radius:6px; border:1px solid var(--line); background:#0b1220; color:var(--txt); }
   .amount { max-width:220px; margin-bottom:14px; }
   .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
   button.act { padding:10px 18px; border:0; border-radius:8px; cursor:pointer; font-weight:600; color:#fff; background:var(--acc); }
@@ -26,9 +23,6 @@
   #result.ok { background:rgba(34,197,94,.12); border:1px solid var(--ok); }
   #result.bad { background:rgba(239,68,68,.12); border:1px solid var(--bad); }
   #result h2 { margin:0 0 6px; } .err { color:var(--bad); margin-top:10px; }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th,td { padding:6px 8px; border-bottom:1px solid var(--line); text-align:left; }
-  tr.f td { color:var(--bad); font-weight:600; }
   .hidden { display:none; }
   .hint { font-size:13px; color:var(--mut); }
 </style>
@@ -36,15 +30,9 @@
 <body>
 <main>
   <h1>💳 Credit Card Fraud Detector</h1>
-  <p class="sub">Enter a transaction's features (or upload a CSV) and the trained model tells you if it looks fraudulent.</p>
+  <p class="sub">Enter a transaction's features and the trained model estimates whether it looks fraudulent.</p>
 
   <div class="card">
-    <div class="tabs">
-      <button class="tab active" data-t="single">Single transaction</button>
-      <button class="tab" data-t="batch">Upload CSV</button>
-    </div>
-
-    <section id="single">
       <div class="row" style="margin-top:0;margin-bottom:12px">
         <button class="sec" id="sN">Load normal sample</button>
         <button class="sec" id="sF">Load fraud sample</button>
@@ -63,29 +51,12 @@
       <div class="row"><button class="act" id="go">Check transaction</button></div>
       <div id="result"><h2 id="verdict"></h2><div id="prob"></div></div>
       <div class="err" id="err"></div>
-    </section>
-
-    <section id="batch" class="hidden">
-      <p class="hint">CSV must contain columns V1…V28 and Amount (extra columns like Time/Class are ignored). Max 500 rows shown.</p>
-      <input type="file" id="file" accept=".csv">
-      <div class="row"><button class="act" id="goCsv">Analyse file</button></div>
-      <div class="err" id="errCsv"></div>
-      <div id="summary" style="margin:14px 0"></div>
-      <div style="max-height:360px;overflow:auto"><table id="tbl" class="hidden">
-        <thead><tr><th>Row</th><th>Amount</th><th>Verdict</th><th>Fraud prob.</th></tr></thead><tbody></tbody></table></div>
-    </section>
   </div>
 </main>
 
 <script>
 const FEATURES = {{ features | tojson }};
 const $ = id => document.getElementById(id);
-
-document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
-  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === b));
-  $('single').classList.toggle('hidden', b.dataset.t !== 'single');
-  $('batch').classList.toggle('hidden', b.dataset.t !== 'batch');
-});
 
 let SAMPLES = {normal: [], fraud: []};
 fetch('/api/samples').then(r => r.json()).then(s => SAMPLES = s);
@@ -112,23 +83,6 @@ $('go').onclick = async () => {
   $('prob').textContent = 'Model fraud probability: ' + (d.fraud_probability * 100).toFixed(1) + '%';
 };
 
-$('goCsv').onclick = async () => {
-  $('errCsv').textContent = ''; $('tbl').classList.add('hidden'); $('summary').textContent = '';
-  const f = $('file').files[0];
-  if (!f) { $('errCsv').textContent = 'Choose a CSV file first.'; return; }
-  const fd = new FormData(); fd.append('file', f);
-  const r = await fetch('/api/predict_csv', {method:'POST', body: fd});
-  const d = await r.json();
-  if (!r.ok) { $('errCsv').textContent = d.error; return; }
-  $('summary').textContent = `${d.fraud_count} fraudulent out of ${d.total} transactions.`;
-  const tb = $('tbl').querySelector('tbody'); tb.innerHTML = '';
-  d.rows.forEach(x => {
-    const tr = document.createElement('tr'); if (x.fraud) tr.className = 'f';
-    tr.innerHTML = `<td>${x.row}</td><td>${x.amount.toFixed(2)}</td><td>${x.fraud ? 'Fraud' : 'Normal'}</td><td>${(x.probability*100).toFixed(1)}%</td>`;
-    tb.appendChild(tr);
-  });
-  $('tbl').classList.remove('hidden');
-};
 </script>
 </body>
 </html>

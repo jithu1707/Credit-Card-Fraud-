@@ -43,6 +43,11 @@ def index():
     return render_template("index.html", features=FEATURES)
 
 
+@app.get("/healthz")
+def healthz():
+    return jsonify(status="ok")
+
+
 @app.get("/api/samples")
 def samples():
     return jsonify(SAMPLES)
@@ -60,30 +65,7 @@ def predict():
                    verdict="Fraudulent transaction" if label else "Normal transaction")
 
 
-@app.post("/api/predict_csv")
-def predict_csv():
-    """Batch: upload a CSV with V1..V28 + Amount columns (extra columns ignored)."""
-    f = request.files.get("file")
-    if not f:
-        return jsonify(error="No file uploaded."), 400
-    try:
-        df = pd.read_csv(f)
-    except Exception:
-        return jsonify(error="Could not read that file as CSV."), 400
-    missing = [c for c in FEATURES if c not in df.columns]
-    if missing:
-        return jsonify(error=f"CSV is missing columns: {', '.join(missing[:5])}..."), 400
-    X = df[FEATURES].apply(pd.to_numeric, errors="coerce")
-    if X.isnull().any().any():
-        return jsonify(error="CSV contains non-numeric or empty values."), 400
-    X["Amount"] = scaler.transform(X[["Amount"]])
-    preds = model.predict(X)
-    probs = model.predict_proba(X)[:, 1] if hasattr(model, "predict_proba") else preds
-    rows = [{"row": i + 1, "amount": float(df["Amount"].iloc[i]),
-             "fraud": bool(p), "probability": round(float(pr), 4)}
-            for i, (p, pr) in enumerate(zip(preds, probs))]
-    return jsonify(total=len(rows), fraud_count=int(preds.sum()), rows=rows[:500])
-
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Local development only. Render starts the app with Gunicorn.
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=False)

@@ -1,0 +1,14 @@
+# Training data is only needed locally; the deployed app uses model.pkl.
+data/creditcard.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
